@@ -1,1 +1,201 @@
 
+<!DOCTYPE html>
+<html lang="es" translate="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="google" content="notranslate"/>
+<title>Visitas ELEAM</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.23.0/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+body{background:#0d1117;color:#fff;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+input::placeholder{color:rgba(255,255,255,0.25)}
+::-webkit-scrollbar{display:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+firebase.initializeApp({databaseURL:"https://visitas---eleam-default-rtdb.firebaseio.com"});
+window.db=firebase.database();
+</script>
+<script type="text/babel">
+var db=window.db;
+var TIME_SLOTS=["09:00 - 10:00","10:00 - 11:00","11:00 - 12:00","12:00 - 13:00","13:00 - 14:00","14:00 - 15:00","15:00 - 16:00","16:00 - 17:00","17:00 - 18:00"];
+var MAX_PER_DAY=3;
+var DOW_COLOR={0:"#e74c3c",1:"#3498db",2:"#27ae60",3:"#e67e22",4:"#9b59b6",5:"#1abc9c",6:"#e91e8c"};
+var MONTHS=[{y:2026,m:5,name:"Junio 2026"},{y:2026,m:6,name:"Julio 2026"}];
+function buildDays(y,m){
+  var today=new Date();today.setHours(0,0,0,0);
+  var lastDay=new Date(y,m+1,0).getDate();
+  var days=[];
+  for(var d=1;d<=lastDay;d++){
+    var date=new Date(y,m,d);
+    var dow=date.getDay();
+    var key=date.toISOString().split("T")[0];
+    var dayName=date.toLocaleDateString("es-CL",{weekday:"long"});
+    var dateStr=date.toLocaleDateString("es-CL",{day:"numeric",month:"short"});
+    days.push({key:key,dayName:dayName,dateStr:dateStr,isToday:date.getTime()===today.getTime(),isPast:date<today,dow:dow,d:d});
+  }
+  return days;
+}
+function timeKey(t){return t.replace(/:/g,"-").replace(/ /g,"");}
+function getDayVisits(visits,dayKey){return TIME_SLOTS.flatMap(function(t){return (visits[dayKey]&&visits[dayKey][timeKey(t)])||[];});}
+function App(){
+var s1=React.useState({}),visits=s1[0],setVisits=s1[1];
+var s2=React.useState(null),selectedDay=s2[0],setSelectedDay=s2[1];
+var s3=React.useState(null),modal=s3[0],setModal=s3[1];
+var s4=React.useState({name:""}),form=s4[0],setForm=s4[1];
+var s5=React.useState(""),cancelName=s5[0],setCancelName=s5[1];
+var s6=React.useState(null),message=s6[0],setMessage=s6[1];
+var s7=React.useState("month"),view=s7[0],setView=s7[1];
+var s8=React.useState(false),cancelMode=s8[0],setCancelMode=s8[1];
+var s9=React.useState(0),monthIdx=s9[0],setMonthIdx=s9[1];
+var curMonth=MONTHS[monthIdx];
+var days=buildDays(curMonth.y,curMonth.m);
+var allDays=MONTHS.reduce(function(acc,mo){return acc.concat(buildDays(mo.y,mo.m));},[]);
+React.useEffect(function(){
+  var firstAvail=allDays.find(function(d){return !d.isPast;});
+  if(firstAvail)setSelectedDay(firstAvail.key);
+  var ref=db.ref("visitas");
+  ref.on("value",function(snap){setVisits(snap.val()||{});});
+  return function(){ref.off();};
+},[]);
+function showMsg(text,type){setMessage({text:text,type:type||"success"});setTimeout(function(){setMessage(null);},3500);}
+function getSlot(dayKey,time){return (visits[dayKey]&&visits[dayKey][timeKey(time)])||[];}
+function openSlot(dayKey,time){setForm({name:""});setCancelName("");setCancelMode(false);setModal({dayKey:dayKey,time:time});}
+function addVisit(){
+  if(!form.name.trim())return showMsg("Por favor escribe tu nombre.","error");
+  if(getDayVisits(visits,modal.dayKey).length>=MAX_PER_DAY)return showMsg("Este dia ya tiene 3 visitas.","error");
+  var slot=getSlot(modal.dayKey,modal.time);
+  db.ref("visitas/"+modal.dayKey+"/"+timeKey(modal.time)).set(slot.concat([{name:form.name.trim()}]));
+  setModal(null);showMsg("Visita registrada: "+form.name.trim());
+}
+function cancelVisit(){
+  if(!cancelName.trim())return showMsg("Ingresa el nombre.","error");
+  var slot=getSlot(modal.dayKey,modal.time);
+  var idx=slot.findIndex(function(v){return v.name.toLowerCase()===cancelName.trim().toLowerCase();});
+  if(idx===-1)return showMsg("No se encontro ese nombre.","error");
+  var newSlot=slot.filter(function(_,i){return i!==idx;});
+  db.ref("visitas/"+modal.dayKey+"/"+timeKey(modal.time)).set(newSlot.length?newSlot:null);
+  setModal(null);showMsg("Visita cancelada correctamente.");
+}
+var currentDay=allDays.find(function(d){return d.key===selectedDay;});
+var accent=currentDay?DOW_COLOR[currentDay.dow]||"#3498db":"#3498db";
+return (
+<div style={{minHeight:"100vh",background:"#0d1117"}}>
+<div style={{background:"rgba(255,255,255,0.04)",borderBottom:"1px solid rgba(255,255,255,0.08)",padding:"18px 20px 14px",textAlign:"center",position:"sticky",top:0,zIndex:100}}>
+<div style={{fontSize:26}}>🏠</div>
+<h1 style={{margin:"4px 0 2px",fontSize:20,fontWeight:800}}>Visitas ELEAM</h1>
+<p style={{margin:0,fontSize:12,color:"rgba(255,255,255,0.4)"}}>Max. {MAX_PER_DAY} visitas por dia</p>
+<div style={{display:"flex",justifyContent:"center",gap:6,marginTop:12}}>
+{[["month","Mes"],["day","Dia"]].map(function(item){var v=item[0],label=item[1];return (<button key={v} onClick={function(){setView(v);}} style={{padding:"6px 18px",borderRadius:20,border:"none",background:view===v?accent:"rgba(255,255,255,0.08)",color:view===v?"#fff":"rgba(255,255,255,0.5)",fontWeight:600,fontSize:13,cursor:"pointer"}}>{label}</button>);})}
+</div>
+</div>
+{message&&<div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",background:message.type==="error"?"#c0392b":"#27ae60",color:"#fff",padding:"11px 22px",borderRadius:10,fontWeight:600,fontSize:13,zIndex:9999,whiteSpace:"nowrap"}}>{message.text}</div>}
+<div style={{maxWidth:540,margin:"0 auto",padding:"16px"}}>
+{view==="month"&&(function(){
+var first=new Date(curMonth.y,curMonth.m,1);
+var pad=first.getDay();
+var cells=[];for(var p=0;p<pad;p++)cells.push(null);
+days.forEach(function(day){cells.push(Object.assign({},day,{count:getDayVisits(visits,day.key).length}));});
+var rows=[];for(var i=0;i<cells.length;i+=7)rows.push(cells.slice(i,i+7));
+return (<div>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+<button onClick={function(){if(monthIdx>0)setMonthIdx(monthIdx-1);}} disabled={monthIdx===0} style={{background:"rgba(255,255,255,0.08)",border:"none",color:"#fff",borderRadius:8,padding:"6px 14px",fontSize:18,cursor:"pointer",opacity:monthIdx===0?0.2:1}}>&#8249;</button>
+<div style={{fontWeight:800,fontSize:17}}>{curMonth.name}</div>
+<button onClick={function(){if(monthIdx<MONTHS.length-1)setMonthIdx(monthIdx+1);}} disabled={monthIdx===MONTHS.length-1} style={{background:"rgba(255,255,255,0.08)",border:"none",color:"#fff",borderRadius:8,padding:"6px 14px",fontSize:18,cursor:"pointer",opacity:monthIdx===MONTHS.length-1?0.2:1}}>&#8250;</button>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:6}}>{["D","L","M","X","J","V","S"].map(function(d){return <div key={d} style={{textAlign:"center",fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:700,padding:"4px 0"}}>{d}</div>;})}</div>
+{rows.map(function(row,ri){return (<div key={ri} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:4}}>{row.map(function(cell,ci){
+if(!cell)return <div key={ci}/>;
+var isFull=cell.count>=MAX_PER_DAY,isSelected=selectedDay===cell.key;
+var color=DOW_COLOR[cell.dow]||"#888";
+return (<button key={ci} disabled={cell.isPast} onClick={function(){setSelectedDay(cell.key);setView("day");}} style={{padding:"8px 2px 6px",borderRadius:10,border:isSelected?"2px solid "+color:cell.isToday?"2px solid rgba(255,255,255,0.3)":"2px solid transparent",background:isSelected?color+"22":cell.isPast?"transparent":"rgba(255,255,255,0.04)",color:cell.isPast?"rgba(255,255,255,0.18)":"#fff",cursor:cell.isPast?"default":"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+<span style={{fontSize:14,fontWeight:cell.isToday?800:500}}>{cell.d}</span>
+{!cell.isPast&&<div style={{display:"flex",gap:2}}>{[0,1,2].map(function(i){return <div key={i} style={{width:5,height:5,borderRadius:"50%",background:i<cell.count?(isFull?"#e74c3c":"#f39c12"):"rgba(255,255,255,0.12)"}}/>;})}</div>}
+</button>);
+})}</div>);})}
+<div style={{display:"flex",gap:14,justifyContent:"center",marginTop:14,flexWrap:"wrap"}}>{[{c:"rgba(255,255,255,0.12)",l:"Sin visitas"},{c:"#f39c12",l:"Con visitas"},{c:"#e74c3c",l:"Dia lleno"}].map(function(x){return (<div key={x.l} style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:10,height:10,borderRadius:"50%",background:x.c}}/><span style={{color:"rgba(255,255,255,0.45)",fontSize:11}}>{x.l}</span></div>);})}</div>
+<div style={{textAlign:"center",marginTop:10,color:"rgba(255,255,255,0.22)",fontSize:12}}>Toca un dia para ver y agendar horarios</div>
+</div>);
+})()}
+{view==="day"&&currentDay&&(function(){
+var c=getDayVisits(visits,selectedDay).length,f=c>=MAX_PER_DAY;
+return (<div>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+<button onClick={function(){var i=allDays.findIndex(function(d){return d.key===selectedDay;});if(i>0)setSelectedDay(allDays[i-1].key);}} style={{background:"rgba(255,255,255,0.08)",border:"none",color:"#fff",borderRadius:8,padding:"8px 16px",fontSize:20,cursor:"pointer"}}>&#8249;</button>
+<div style={{textAlign:"center"}}>
+<div style={{color:accent,fontWeight:800,fontSize:18,textTransform:"capitalize"}}>{currentDay.dayName}</div>
+<div style={{color:"rgba(255,255,255,0.45)",fontSize:13}}>{currentDay.dateStr}</div>
+<div style={{display:"inline-block",marginTop:5,padding:"2px 12px",borderRadius:20,fontSize:11,fontWeight:700,background:f?"#e74c3c22":"#27ae6022",color:f?"#e74c3c":"#27ae60"}}>{c}/{MAX_PER_DAY} {f?"DIA COMPLETO":"hay cupo"}</div>
+</div>
+<button onClick={function(){var i=allDays.findIndex(function(d){return d.key===selectedDay;});if(i<allDays.length-1)setSelectedDay(allDays[i+1].key);}} style={{background:"rgba(255,255,255,0.08)",border:"none",color:"#fff",borderRadius:8,padding:"8px 16px",fontSize:20,cursor:"pointer"}}>&#8250;</button>
+</div>
+<div style={{display:"flex",flexDirection:"column",gap:10}}>{TIME_SLOTS.map(function(time){
+var slot=getSlot(selectedDay,time),count=slot.length;
+var dayFull=getDayVisits(visits,selectedDay).length>=MAX_PER_DAY;
+var dot=count>0?"#f39c12":dayFull?"rgba(255,255,255,0.15)":"#27ae60";
+return (<div key={time} onClick={function(){openSlot(selectedDay,time);}} style={{background:"rgba(255,255,255,0.05)",borderRadius:14,padding:"14px 16px",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer",display:"flex",alignItems:"center",gap:14}}>
+<div style={{width:12,height:12,borderRadius:"50%",background:dot,flexShrink:0}}/>
+<div style={{flex:1}}>
+<div style={{fontWeight:700,fontSize:15}}>{time}</div>
+{count>0&&<div style={{marginTop:5,display:"flex",flexWrap:"wrap",gap:5}}>{slot.map(function(v,i){return <span key={i} style={{background:accent+"22",border:"1px solid "+accent+"44",color:"rgba(255,255,255,0.85)",fontSize:12,padding:"3px 9px",borderRadius:6}}>👤 {v.name}</span>;})}</div>}
+{count===0&&<div style={{color:"rgba(255,255,255,0.25)",fontSize:12,marginTop:2}}>{dayFull?"Sin cupos":"Toca para agendar"}</div>}
+</div>
+{count>0&&<div style={{fontSize:11,color:"rgba(255,255,255,0.3)",flexShrink:0}}>{count} persona{count!==1?"s":""}</div>}
+</div>);
+})}</div>
+</div>);
+})()}
+</div>
+{modal&&(function(){
+var slot=getSlot(modal.dayKey,modal.time);
+var dayFull=getDayVisits(visits,modal.dayKey).length>=MAX_PER_DAY;
+var day=allDays.find(function(d){return d.key===modal.dayKey;});
+var count=getDayVisits(visits,modal.dayKey).length;
+return (<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:600}} onClick={function(e){if(e.target===e.currentTarget)setModal(null);}}>
+<div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.12)",borderRadius:"22px 22px 0 0",padding:"22px 20px 36px",width:"100%",maxWidth:540}}>
+<div style={{textAlign:"center",marginBottom:18}}>
+<div style={{color:"rgba(255,255,255,0.4)",fontSize:12,textTransform:"capitalize"}}>{day&&day.dayName} - {day&&day.dateStr}</div>
+<div style={{fontWeight:800,fontSize:20,marginTop:2}}>{modal.time}</div>
+<div style={{display:"inline-block",marginTop:6,padding:"3px 14px",borderRadius:20,fontSize:12,fontWeight:700,background:dayFull?"#e74c3c22":"#27ae6022",color:dayFull?"#e74c3c":"#27ae60"}}>{count}/{MAX_PER_DAY} hoy {dayFull?"COMPLETO":"hay cupo"}</div>
+</div>
+{slot.length>0&&<div style={{display:"flex",gap:8,marginBottom:14}}>
+<button onClick={function(){setCancelMode(false);}} style={{flex:1,padding:"9px",borderRadius:10,border:"none",background:!cancelMode?"#27ae60":"rgba(255,255,255,0.06)",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>Agendar</button>
+<button onClick={function(){setCancelMode(true);}} style={{flex:1,padding:"9px",borderRadius:10,border:"none",background:cancelMode?"#c0392b":"rgba(255,255,255,0.06)",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>Cancelar visita</button>
+</div>}
+{!cancelMode&&!dayFull&&<div style={{background:"#27ae6012",border:"1px solid #27ae6030",borderRadius:14,padding:16,marginBottom:12}}>
+<div style={{color:"#27ae60",fontWeight:700,fontSize:13,marginBottom:10}}>Agendar visita</div>
+<input autoFocus placeholder="Nombre del residente" value={form.name} onChange={function(e){setForm({name:e.target.value});}} onKeyDown={function(e){if(e.key==="Enter")addVisit();}} style={{width:"100%",padding:"11px 13px",borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,outline:"none",marginBottom:10}}/>
+<button onClick={addVisit} style={{width:"100%",padding:12,borderRadius:10,background:"#27ae60",border:"none",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer"}}>Registrar</button>
+</div>}
+{!cancelMode&&dayFull&&<div style={{background:"#e74c3c12",border:"1px solid #e74c3c30",borderRadius:14,padding:16,marginBottom:12,textAlign:"center"}}>
+<div style={{fontSize:24,marginBottom:6}}>🚫</div>
+<div style={{color:"#e74c3c",fontWeight:700,fontSize:14}}>Dia completo</div>
+<div style={{color:"rgba(255,255,255,0.4)",fontSize:12,marginTop:4}}>Ya hay 3 visitas agendadas</div>
+</div>}
+{cancelMode&&slot.length>0&&<div style={{background:"#e74c3c12",border:"1px solid #e74c3c30",borderRadius:14,padding:16,marginBottom:12}}>
+<div style={{color:"rgba(255,255,255,0.6)",fontSize:12,marginBottom:8}}>Visitas en este horario:</div>
+<div style={{marginBottom:12,display:"flex",flexWrap:"wrap",gap:5}}>{slot.map(function(v,i){return <span key={i} style={{background:"rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.8)",fontSize:12,padding:"4px 10px",borderRadius:6}}>👤 {v.name}</span>;})}</div>
+<input placeholder="Escribe el nombre del residente" value={cancelName} onChange={function(e){setCancelName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")cancelVisit();}} style={{width:"100%",padding:"11px 13px",borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,outline:"none",marginBottom:10}}/>
+<button onClick={cancelVisit} style={{width:"100%",padding:12,borderRadius:10,background:"#c0392b",border:"none",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer"}}>Confirmar cancelacion</button>
+</div>}
+<button onClick={function(){setModal(null);}} style={{width:"100%",padding:12,borderRadius:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.5)",fontWeight:600,fontSize:14,cursor:"pointer"}}>Cerrar</button>
+</div>
+</div>);
+})()}
+</div>
+);
+}
+var root=ReactDOM.createRoot(document.getElementById("root"));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>
+
