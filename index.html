@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es" translate="no">
 <head>
@@ -29,20 +28,20 @@ var db=window.db;
 var TIME_SLOTS=["09:00 - 10:00","10:00 - 11:00","11:00 - 12:00","12:00 - 13:00","13:00 - 14:00","14:00 - 15:00","15:00 - 16:00","16:00 - 17:00","17:00 - 18:00"];
 var MAX_PER_DAY=3;
 var DOW_COLOR={0:"#e74c3c",1:"#3498db",2:"#27ae60",3:"#e67e22",4:"#9b59b6",5:"#1abc9c",6:"#e91e8c"};
-var MONTHS=[{y:2026,m:5,name:"Junio 2026"},{y:2026,m:6,name:"Julio 2026"}];
+var MONTHS=[{y:2026,m:5,name:"Junio 2026"},{y:2026,m:6,name:"Julio 2026"},{y:2026,m:7,name:"Agosto 2026"}];
 function buildDays(y,m){
-  var today=new Date();today.setHours(0,0,0,0);
-  var lastDay=new Date(y,m+1,0).getDate();
-  var days=[];
-  for(var d=1;d<=lastDay;d++){
-    var date=new Date(y,m,d);
-    var dow=date.getDay();
-    var key=date.toISOString().split("T")[0];
-    var dayName=date.toLocaleDateString("es-CL",{weekday:"long"});
-    var dateStr=date.toLocaleDateString("es-CL",{day:"numeric",month:"short"});
-    days.push({key:key,dayName:dayName,dateStr:dateStr,isToday:date.getTime()===today.getTime(),isPast:date<today,dow:dow,d:d});
-  }
-  return days;
+var today=new Date();today.setHours(0,0,0,0);
+var lastDay=new Date(y,m+1,0).getDate();
+var days=[];
+for(var d=1;d<=lastDay;d++){
+var date=new Date(y,m,d);
+var dow=date.getDay();
+var key=date.toISOString().split("T")[0];
+var dayName=date.toLocaleDateString("es-CL",{weekday:"long"});
+var dateStr=date.toLocaleDateString("es-CL",{day:"numeric",month:"short"});
+days.push({key:key,dayName:dayName,dateStr:dateStr,isToday:date.getTime()===today.getTime(),isPast:date<today,dow:dow,d:d});
+}
+return days;
 }
 function timeKey(t){return t.replace(/:/g,"-").replace(/ /g,"");}
 function getDayVisits(visits,dayKey){return TIME_SLOTS.flatMap(function(t){return (visits[dayKey]&&visits[dayKey][timeKey(t)])||[];});}
@@ -60,30 +59,30 @@ var curMonth=MONTHS[monthIdx];
 var days=buildDays(curMonth.y,curMonth.m);
 var allDays=MONTHS.reduce(function(acc,mo){return acc.concat(buildDays(mo.y,mo.m));},[]);
 React.useEffect(function(){
-  var firstAvail=allDays.find(function(d){return !d.isPast;});
-  if(firstAvail)setSelectedDay(firstAvail.key);
-  var ref=db.ref("visitas");
-  ref.on("value",function(snap){setVisits(snap.val()||{});});
-  return function(){ref.off();};
+var firstAvail=allDays.find(function(d){return !d.isPast;});
+if(firstAvail)setSelectedDay(firstAvail.key);
+var ref=db.ref("visitas");
+ref.on("value",function(snap){setVisits(snap.val()||{});});
+return function(){ref.off();};
 },[]);
 function showMsg(text,type){setMessage({text:text,type:type||"success"});setTimeout(function(){setMessage(null);},3500);}
 function getSlot(dayKey,time){return (visits[dayKey]&&visits[dayKey][timeKey(time)])||[];}
 function openSlot(dayKey,time){setForm({name:""});setCancelName("");setCancelMode(false);setModal({dayKey:dayKey,time:time});}
 function addVisit(){
-  if(!form.name.trim())return showMsg("Por favor escribe tu nombre.","error");
-  if(getDayVisits(visits,modal.dayKey).length>=MAX_PER_DAY)return showMsg("Este dia ya tiene 3 visitas.","error");
-  var slot=getSlot(modal.dayKey,modal.time);
-  db.ref("visitas/"+modal.dayKey+"/"+timeKey(modal.time)).set(slot.concat([{name:form.name.trim()}]));
-  setModal(null);showMsg("Visita registrada: "+form.name.trim());
+if(!form.name.trim())return showMsg("Por favor escribe tu nombre.","error");
+if(getDayVisits(visits,modal.dayKey).length>=MAX_PER_DAY)return showMsg("Este dia ya tiene 3 visitas.","error");
+var slot=getSlot(modal.dayKey,modal.time);
+db.ref("visitas/"+modal.dayKey+"/"+timeKey(modal.time)).set(slot.concat([{name:form.name.trim()}]));
+setModal(null);showMsg("Visita registrada: "+form.name.trim());
 }
 function cancelVisit(){
-  if(!cancelName.trim())return showMsg("Ingresa el nombre.","error");
-  var slot=getSlot(modal.dayKey,modal.time);
-  var idx=slot.findIndex(function(v){return v.name.toLowerCase()===cancelName.trim().toLowerCase();});
-  if(idx===-1)return showMsg("No se encontro ese nombre.","error");
-  var newSlot=slot.filter(function(_,i){return i!==idx;});
-  db.ref("visitas/"+modal.dayKey+"/"+timeKey(modal.time)).set(newSlot.length?newSlot:null);
-  setModal(null);showMsg("Visita cancelada correctamente.");
+if(!cancelName.trim())return showMsg("Ingresa el nombre.","error");
+var slot=getSlot(modal.dayKey,modal.time);
+var idx=slot.findIndex(function(v){return v.name.toLowerCase()===cancelName.trim().toLowerCase();});
+if(idx===-1)return showMsg("No se encontro ese nombre.","error");
+var newSlot=slot.filter(function(_,i){return i!==idx;});
+db.ref("visitas/"+modal.dayKey+"/"+timeKey(modal.time)).set(newSlot.length?newSlot:null);
+setModal(null);showMsg("Visita cancelada correctamente.");
 }
 var currentDay=allDays.find(function(d){return d.key===selectedDay;});
 var accent=currentDay?DOW_COLOR[currentDay.dow]||"#3498db":"#3498db";
@@ -198,4 +197,3 @@ root.render(React.createElement(App));
 </script>
 </body>
 </html>
-
