@@ -26,7 +26,7 @@ window.db=firebase.database();
 <script type="text/babel">
 var db=window.db;
 var TIME_SLOTS=["09:00 - 10:00","10:00 - 11:00","11:00 - 12:00","12:00 - 13:00","13:00 - 14:00","14:00 - 15:00","15:00 - 16:00","16:00 - 17:00","17:00 - 18:00"];
-var MAX_PER_DAY=3;
+var MAX_PER_DAY=5;
 var DOW_COLOR={0:"#e74c3c",1:"#3498db",2:"#27ae60",3:"#e67e22",4:"#9b59b6",5:"#1abc9c",6:"#e91e8c"};
 var MONTHS=[{y:2026,m:8,name:"Septiembre 2026"},{y:2026,m:9,name:"Octubre 2026"},{y:2026,m:10,name:"Noviembre 2026"},{y:2026,m:11,name:"Diciembre 2026"}];
 function buildDays(y,m){
@@ -70,7 +70,7 @@ function getSlot(dayKey,time){return (visits[dayKey]&&visits[dayKey][timeKey(tim
 function openSlot(dayKey,time){setForm({name:""});setCancelName("");setCancelMode(false);setModal({dayKey:dayKey,time:time});}
 function addVisit(){
 if(!form.name.trim())return showMsg("Por favor escribe tu nombre.","error");
-if(getDayVisits(visits,modal.dayKey).length>=MAX_PER_DAY)return showMsg("Este dia ya tiene 3 visitas.","error");
+if(getDayVisits(visits,modal.dayKey).length>=MAX_PER_DAY)return showMsg("Este dia ya tiene 5 visitas.","error");
 var slot=getSlot(modal.dayKey,modal.time);
 db.ref("visitas/"+modal.dayKey+"/"+timeKey(modal.time)).set(slot.concat([{name:form.name.trim()}]));
 setModal(null);showMsg("Visita registrada: "+form.name.trim());
@@ -117,7 +117,7 @@ var isFull=cell.count>=MAX_PER_DAY,isSelected=selectedDay===cell.key;
 var color=DOW_COLOR[cell.dow]||"#888";
 return (<button key={ci} disabled={cell.isPast} onClick={function(){setSelectedDay(cell.key);setView("day");}} style={{padding:"8px 2px 6px",borderRadius:10,border:isSelected?"2px solid "+color:cell.isToday?"2px solid rgba(255,255,255,0.3)":"2px solid transparent",background:isSelected?color+"22":cell.isPast?"transparent":"rgba(255,255,255,0.04)",color:cell.isPast?"rgba(255,255,255,0.18)":"#fff",cursor:cell.isPast?"default":"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
 <span style={{fontSize:14,fontWeight:cell.isToday?800:500}}>{cell.d}</span>
-{!cell.isPast&&<div style={{display:"flex",gap:2}}>{[0,1,2].map(function(i){return <div key={i} style={{width:5,height:5,borderRadius:"50%",background:i<cell.count?(isFull?"#e74c3c":"#f39c12"):"rgba(255,255,255,0.12)"}}/>;})}</div>}
+{!cell.isPast&&<div style={{display:"flex",gap:2}}>{[0,1,2,3,4].map(function(i){return <div key={i} style={{width:5,height:5,borderRadius:"50%",background:i<cell.count?(isFull?"#e74c3c":"#f39c12"):"rgba(255,255,255,0.12)"}}/>;})}</div>}
 </button>);
 })}</div>);})}
 <div style={{display:"flex",gap:14,justifyContent:"center",marginTop:14,flexWrap:"wrap"}}>{[{c:"rgba(255,255,255,0.12)",l:"Sin visitas"},{c:"#f39c12",l:"Con visitas"},{c:"#e74c3c",l:"Dia lleno"}].map(function(x){return (<div key={x.l} style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:10,height:10,borderRadius:"50%",background:x.c}}/><span style={{color:"rgba(255,255,255,0.45)",fontSize:11}}>{x.l}</span></div>);})}</div>
@@ -177,7 +177,7 @@ return (<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",disp
 {!cancelMode&&dayFull&&<div style={{background:"#e74c3c12",border:"1px solid #e74c3c30",borderRadius:14,padding:16,marginBottom:12,textAlign:"center"}}>
 <div style={{fontSize:24,marginBottom:6}}>🚫</div>
 <div style={{color:"#e74c3c",fontWeight:700,fontSize:14}}>Dia completo</div>
-<div style={{color:"rgba(255,255,255,0.4)",fontSize:12,marginTop:4}}>Ya hay 3 visitas agendadas</div>
+<div style={{color:"rgba(255,255,255,0.4)",fontSize:12,marginTop:4}}>Ya hay 5 visitas agendadas</div>
 </div>}
 {cancelMode&&slot.length>0&&<div style={{background:"#e74c3c12",border:"1px solid #e74c3c30",borderRadius:14,padding:16,marginBottom:12}}>
 <div style={{color:"rgba(255,255,255,0.6)",fontSize:12,marginBottom:8}}>Visitas en este horario:</div>
